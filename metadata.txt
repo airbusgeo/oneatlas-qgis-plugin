@@ -2,7 +2,7 @@
 
 [general]
 name=OneAtlas
-description=Provide access to OneAtlas platform (https://oneatlas.airbus.com/) for searching catalog and stream satellite imagery.
+description=Provide access to OneAtlas platform for searching catalog and stream satellite imagery.
 about=OneAtlas plugin for QGIS provides access to OneAtlas platform (https://oneatlas.airbus.com/) for searching catalog and stream satellite imagery.
 author=Airbus DS Geo
 email=technicalsupport@intelligence-airbusds.com
@@ -19,7 +19,7 @@ repository=https://github.com/airbusgeo/oneatlas-qgis-plugin
 category=Imagery, Web, Raster
 tags=OneAtlas, Satellite, Imagery, Streaming, WMTS, WCS
 icon=logo.png
-homepage=https://oneatlas.airbus.com/
+homepage=https://api.oneatlas.airbus.com/guides/oneatlas-data/g-service-view/#qgis-oneatlas-data-plugin
 
 hasProcessingProvider=no
 experimental=False
