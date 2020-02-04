@@ -125,9 +125,13 @@ class MySearch(QDialog, FORM_CLASS):
         if settings.value('proxy/proxyEnabled', '') == 'true':
             http = settings.value('proxy/proxyHost', '')
             port = settings.value('proxy/proxyPort', '')
+            pxuser = settings.value('proxy/proxyUser','')
+            pxpass = settings.value('proxy/proxyPassword','')
             print(f'{http}:{port}')
-            if http != '' and port != '':
+            if http != '' and port != '' and pxuser == '' and pxpass == '':
                 self.session.proxies = {'http': f'{http}:{port}', 'https':f'{http}:{port}'}
+            if http != '' and port != '' and pxuser != '' and pxpass != '':
+                self.session.proxies = {'http': f'{pxuser}:{pxpass}@{http}:{port}', 'https':f'{pxuser}:{pxpass}@{http}:{port}'}
         else:
             print('No Proxy')
 
