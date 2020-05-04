@@ -3,6 +3,9 @@ import requests
 import datetime
 from xml.dom import minidom
 
+import sys
+
+
 from qgis.PyQt.uic import loadUiType
 from qgis.PyQt.QtWidgets import QAction, QDialog, QDialogButtonBox, QMessageBox
 from qgis.PyQt.QtGui import QIcon, QColor
@@ -50,12 +53,23 @@ BM_ATTR.update({
     'wmts': 'string'})
 DT_ATTR = dict(BASE_ATTR)
 DT_ATTR.update({
+    'service' : 'string',
+    'id' : 'string',
+    'acquisitionIdentifier' : 'string',
+    'parentIdentifier' : 'string',
+    'sourceIdentifier' : 'string',
+    'constellation' : 'string',
     'acquisitionDate': 'string',
+    'cloudCover' :'double',
+    'incidenceAngle' : 'double',
     'snowCover': 'double',
+    'processingLevel' : 'string',
     'wmts_panchromatic': 'string', 
     'wmts_multispectral': 'string',
+    'wmts_pms': 'string',
     'wcs_panchromatic': 'string',
-    'wcs_multispectral': 'string'})
+    'wcs_multispectral': 'string',
+    'wcs_pms': 'string'})
 
 def joinFieldsAttributes(ATTR):
     array = []
@@ -391,6 +405,8 @@ class MySearch(QDialog, FORM_CLASS):
             r = self.session.get(url, auth=auth, headers=headers, params=params)
             rSearch = r.json()
 
+            print ('Total Results : '+ str(rSearch['totalResults']))
+
             # Exception request error
             if r.status_code != 200:
                 self.error(f'{service} search error {r.status_code}\n{rSearch["message"]}')
@@ -419,19 +435,68 @@ class MySearch(QDialog, FORM_CLASS):
                     rectangle = QgsRectangle(fBbox[0], fBbox[1], fBbox[2], fBbox[3])
                 else:
                     feature['id'] = self.getPropertie(rFeature, 'id')
+                    feature['acquisitionIdentifier'] = self.getPropertie(rFeature, 'acquisitionIdentifier')
+                    feature['sourceIdentifier'] = self.getPropertie(rFeature, 'sourceIdentifier')
+                    feature['parentIdentifier'] = self.getPropertie(rFeature, 'parentIdentifier')
+                    feature['processingLevel'] = self.getPropertie(rFeature, 'processingLevel')
                     feature['acquisitionDate'] = self.getPropertie(rFeature, 'acquisitionDate')
                     feature['snowCover'] = self.getPropertie(rFeature, 'snowCover')
                     try:
-                        for json in rFeature['_links']['imagesWmts']:
-                            feature[f'wmts_{json["name"]}'] = json['href']
-                        for json in rFeature['_links']['imagesWcs']:
-                            if 'buffer' in rFeature['rights']:
-                                feature[f'wcs_{json["name"]}'] = json['href']
+
+                        # Warmup / Archive images (processingLevel=ALBUM) don't have WMTS or WCS links
+                        if self.getPropertie(rFeature, 'processingLevel') != 'ALBUM':
+                            # More than one record, it's a list
+                            if type(rFeature['_links']['imagesWmts']) is list:
+                                for json in rFeature['_links']['imagesWmts']:
+                                    feature[f'wmts_{json["name"]}'] = json['href']
+                            # Only one record, it's a dict
                             else:
-                                feature[f'wcs_{json["name"]}'] = None
+                                json =rFeature['_links']['imagesWmts']
+                                # Is the key "name" exist in the <dict> ?
+                                if "name" in rFeature["_links"]["imagesWmts"]:
+                                    feature[ f'wmts_{json["name"]}' ] = json['href']
+                                else:
+                                    feature['wmts_pms'] = json['href']
+
+                            # More than one record, it's a list
+                            if type(rFeature['_links']['imagesWcs']) is list:
+                                for json in rFeature['_links']['imagesWcs']:
+                                    if 'buffer' in rFeature['rights']:
+                                        # Is the key "name" exist in the <dict> ?
+                                        if "name" in rFeature["_links"]["imagesWcs"]:
+                                            feature[f'wcs_{json["name"]}'] = json['href']
+                                        else:
+                                            feature['wcs_pms'] = json['href']
+                                    else:
+                                        # Is the key "name" exist in the <dict> ?
+                                        if "name" in rFeature["_links"]["imagesWcs"]:
+                                            feature[f'wcs_{json["name"]}'] = None
+                                        else:
+                                            feature['wcs_pms'] = None
+                            # Only one record, it's a dict
+                            else:
+                                json =rFeature['_links']['imagesWcs']
+                                if 'buffer' in rFeature['rights']:
+                                    # Is the key "name" exist in the <dict> ?
+                                    if "name" in rFeature["_links"]["imagesWcs"]:
+                                        feature[f'wcs_{json["name"]}'] = json['href']
+                                    else:
+                                        feature['wcs_pms'] = json['href']
+                                else:
+                                    # Is the key "name" exist in the <dict> ?
+                                    if "name" in rFeature["_links"]["imagesWcs"]:
+                                        feature[f'wcs_{json["name"]}'] = None
+                                    else:
+                                        feature['wcs_pms'] = None
+
                     except Exception as e:
                         print(f'ERROR * eF = qgis.utils.plugins["OneAtlas"].mySearch.errorFeatures[{len(self.errorFeatures)}]')
                         print(str(e))
+
+                        exc_type, exc_obj, exc_tb = sys.exc_info()
+                        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                        print(exc_type, fname, exc_tb.tb_lineno)
+
                         self.errorFeatures.append(rFeature)
                         continue
                     # Bbox
