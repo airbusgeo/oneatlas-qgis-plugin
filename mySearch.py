@@ -403,14 +403,16 @@ class MySearch(QDialog, FORM_CLASS):
             t = datetime.datetime.now()
             print(f'START {service} search')
             r = self.session.get(url, auth=auth, headers=headers, params=params)
+            print(f'Result : {r}')
             rSearch = r.json()
-
-            print ('Total Results : '+ str(rSearch['totalResults']))
 
             # Exception request error
             if r.status_code != 200:
                 self.error(f'{service} search error {r.status_code}\n{rSearch["message"]}')
+                print(f'Result (Json) : {rSearch}')
                 return
+
+            print ('Total Results : '+ str(rSearch['totalResults']))
 
             # Create the search result layer with fields according to current service
             layer = QgsVectorLayer(f'Polygon?crs=epsg:4326&index=yes&{FIELDS[service]}', providerLib='memory', baseName=f'{service} search results')
