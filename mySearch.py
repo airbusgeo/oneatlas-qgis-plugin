@@ -352,7 +352,7 @@ class MySearch(QDialog, FORM_CLASS):
                 # ! Auth
                 self.dtSetAuth()
 
-                url = 'https://search.oneatlas.geoapi-airbusds.com/api/v1/opensearch'
+                url = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
                 auth = None
                 headers = self.dtHeaders
 
