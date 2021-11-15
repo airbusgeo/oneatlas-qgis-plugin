@@ -84,6 +84,14 @@ FIELDS = {'BaseMap': BM_FIELDS, 'Data': DT_FIELDS}
 
 class MySearch(QDialog, FORM_CLASS):
 
+    bmUrlAuth = 'https://view.geoapi-airbusds.com/api/v1/me'
+    bmUrlSearch = 'https://view.geoapi-airbusds.com/api/v1/images'
+
+    dataUrlAuth = 'https://authenticate.foundation.oneatlas.airbus.com/auth/realms/IDP/protocol/openid-connect/token'
+    dataUrlMe = 'https://data.api.oneatlas.airbus.com/api/v1/me'
+    dataUrlSearch = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
+
+
     def __init__(self, iface):
         super(MySearch, self).__init__(iface.mainWindow())
         self.iface = iface
@@ -263,7 +271,7 @@ class MySearch(QDialog, FORM_CLASS):
         # Set auth for the first time and test it
         if self.bmAuth is None:
             self.bmAuth = requests.auth.HTTPBasicAuth(self.bmUsernameInput.text(), self.bmPasswordInput.text())
-            r = self.session.get('https://view.geoapi-airbusds.com/api/v1/me', auth=self.bmAuth)
+            r = self.session.get(self.bmUrlAuth, auth=self.bmAuth)
 
             # Exception bad authentication
             if r.status_code != 200:
@@ -280,7 +288,7 @@ class MySearch(QDialog, FORM_CLASS):
 
         # Set header for the first time and test it
         if self.dtHeaders is None or self.dtWorkspaceId is None:
-            r = self.session.post('https://authenticate.foundation.api.oneatlas.airbus.com/auth/realms/IDP/protocol/openid-connect/token',
+            r = self.session.post(self.dataUrlAuth,
                             headers={'Content-Type':'application/x-www-form-urlencoded'},
                             data={'apikey':self.dtApikeyInput.text(), 'grant_type':'api_key', 'client_id':'IDP'})
 
@@ -293,7 +301,7 @@ class MySearch(QDialog, FORM_CLASS):
             # MAYBE decode x64 to print rights or some other usefull info ?
             self.dtHeaders = {'Content-Type':'application/json', 'Authorization':f'Bearer {r.json()["access_token"]}'}
 
-            r = self.session.get('https://data.api.oneatlas.airbus.com/api/v1/me', headers=self.dtHeaders)
+            r = self.session.get(self.dataUrlMe, headers=self.dtHeaders)
 
             # Exception workspace error
             if r.status_code != 200:
@@ -332,7 +340,7 @@ class MySearch(QDialog, FORM_CLASS):
                 self.bmSetAuth()
                 
                 # Set request attributes
-                url = 'https://view.geoapi-airbusds.com/api/v1/images'
+                url = self.bmUrlSearch
                 auth = self.bmAuth
                 headers = None
 
@@ -352,7 +360,7 @@ class MySearch(QDialog, FORM_CLASS):
                 # ! Auth
                 self.dtSetAuth()
 
-                url = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
+                url = self.dataUrlSearch
                 auth = None
                 headers = self.dtHeaders
 
@@ -459,6 +467,7 @@ class MySearch(QDialog, FORM_CLASS):
                                     feature[ f'wmts_{json["name"]}' ] = json['href']
                                 else:
                                     feature['wmts_pms'] = json['href']
+                            feature['wmts_pms'] = rFeature['_links']['wmts']['href']
 
                             # More than one record, it's a list
                             if type(rFeature['_links']['imagesWcs']) is list:
