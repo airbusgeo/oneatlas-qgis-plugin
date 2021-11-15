@@ -159,8 +159,8 @@ class OneAtlas:
                     pmsRadio.setEnabled(False)
                     multispectralRadio.setChecked(True)
                 else:
-                    multispectralRadio.setEnabled(False)
-                    panchromaticRadio.setEnabled(False)
+                    multispectralRadio.setEnabled(True)
+                    panchromaticRadio.setEnabled(True)
                     pmsRadio.setEnabled(True)
                     pmsRadio.setChecked(True)
 
