@@ -8,7 +8,7 @@ author=Airbus DS Geo
 email=technicalsupport@intelligence-airbusds.com
 
 qgisMinimumVersion=3.0
-version=1.1.2
+version=1.1.3
 
 tracker=https://github.com/airbusgeo/oneatlas-qgis-plugin/issues
 repository=https://github.com/airbusgeo/oneatlas-qgis-plugin
