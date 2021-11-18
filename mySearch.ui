@@ -217,7 +217,7 @@
             <property name="enabled">
              <bool>false</bool>
             </property>
-            <property name="allowNull">
+            <property name="allowNull" stdset="0">
              <bool>false</bool>
             </property>
            </widget>
@@ -230,7 +230,7 @@
             <property name="accelerated">
              <bool>false</bool>
             </property>
-            <property name="allowNull">
+            <property name="allowNull" stdset="0">
              <bool>false</bool>
             </property>
            </widget>
@@ -298,6 +298,16 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="2">
+           <widget class="QCheckBox" name="dtPleiadesNeoCheck">
+            <property name="text">
+             <string>Pleiades Neo (PNEO)</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -347,7 +357,7 @@
             <property name="readOnly">
              <bool>false</bool>
             </property>
-            <property name="allowNull">
+            <property name="allowNull" stdset="0">
              <bool>false</bool>
             </property>
            </widget>
@@ -372,7 +382,7 @@
             <property name="calendarPopup">
              <bool>true</bool>
             </property>
-            <property name="allowNull">
+            <property name="allowNull" stdset="0">
              <bool>false</bool>
             </property>
            </widget>
