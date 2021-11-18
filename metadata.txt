@@ -2,13 +2,13 @@
 
 [general]
 name=OneAtlas
-description=This plugin provides access to the OneAtlas platform for searching and streaming satellite imagery (ex. SPOT, Pleiades).
-about=OneAtlas plugin for QGIS provides access to the OneAtlas platform (https://oneatlas.airbus.com/) for searching and streaming satellite imagery (ex: SPOT, Pleiades).
+description=This plugin provides access to the OneAtlas platform for searching and streaming satellite imagery (ex. SPOT, Pleiades, Pleiades Neo).
+about=OneAtlas plugin for QGIS provides access to the OneAtlas platform (https://oneatlas.airbus.com/) for searching and streaming satellite imagery (ex: SPOT, Pleiades, Pleiades Neo).
 author=Airbus DS Geo
 email=technicalsupport@intelligence-airbusds.com
 
 qgisMinimumVersion=3.0
-version=1.1.3
+version=1.2.0
 
 tracker=https://github.com/airbusgeo/oneatlas-qgis-plugin/issues
 repository=https://github.com/airbusgeo/oneatlas-qgis-plugin
@@ -17,7 +17,7 @@ repository=https://github.com/airbusgeo/oneatlas-qgis-plugin
 #--- Recommended items
 
 category=Imagery, Web, Raster
-tags=OneAtlas, Satellite, Imagery, Streaming, WMTS, WCS, PHR, Pleiades, SPOT
+tags=OneAtlas, Satellite, Imagery, Streaming, WMTS, WCS, PHR, Pleiades, SPOT, Pleiades Neo, PNEO
 icon=logo.png
 homepage=https://api.oneatlas.airbus.com/guides/oneatlas-data/g-service-view/#qgis-oneatlas-data-plugin
 
