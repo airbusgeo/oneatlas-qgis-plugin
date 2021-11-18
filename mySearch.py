@@ -251,7 +251,7 @@ class MySearch(QDialog, FORM_CLASS):
         # POLYGON \((\((-?\d+(\.\d+)? -?\d+(\.\d+)?)(, -?\d+(\.\d+)? -?\d+(\.\d+)?)*\))+\)
         elif QgsGeometry.fromWkt(self.polygonInput.text()).isGeosValid() == False:
             errors.append('<b>Polygon</b> is invalid (check for crossing lines or double points)')
-        if not self.dtSpotCheck.isChecked() and not self.dtPleiadesCheck.isChecked():
+        if not self.dtSpotCheck.isChecked() and not self.dtPleiadesCheck.isChecked() and not self.dtPleiadesNeoCheck.isChecked():
             errors.append('Check at least one <b>Sensor</b>')
         if not self.dtPublicCheck.isChecked() and not self.dtPrivateCheck.isChecked():
             errors.append('Check at least one <b>Workspace</b>')
@@ -370,7 +370,9 @@ class MySearch(QDialog, FORM_CLASS):
                     constellations.append('SPOT')
                 if self.dtPleiadesCheck.isChecked():
                     constellations.append('PHR')
-                
+                if self.dtPleiadesNeoCheck.isChecked():
+                    constellations.append('PNEO')
+
                 # Dates
                 # MAYBE remove hours from dates
                 dateFrom, dateTo = '1970-01-01T00:00:00', self.now()
