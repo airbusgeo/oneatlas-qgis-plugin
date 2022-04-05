@@ -303,6 +303,8 @@ class MySearch(QDialog, FORM_CLASS):
 
             r = self.session.get(self.dataUrlMe, headers=self.dtHeaders)
 
+            print (r)
+
             # Exception workspace error
             if r.status_code != 200:
                 self.dtAuthReset()
@@ -397,7 +399,14 @@ class MySearch(QDialog, FORM_CLASS):
                 # Workspaces (at leat one)
                 workspaces = []
                 if self.dtPublicCheck.isChecked():
+
+                    ## Workspace public for SPOT and PHR
                     workspaces.append('0e33eb50-3404-48ad-b835-b0b4b72a5625')
+
+                    ## Workspace public for PNEO
+                    ## {"id": "3e88441b-adc9-4be6-bd80-59d4fb69d5a7", "name": "public-pneo", "title": "Workspace temporaire pour la data pneo"}
+                    workspaces.append('3e88441b-adc9-4be6-bd80-59d4fb69d5a7')
+
                 if self.dtPrivateCheck.isChecked():
                     workspaces.append(self.dtWorkspaceId)
 
