@@ -1,30 +1,26 @@
-import os
-import requests
 import datetime
+import os
+import sys
 from xml.dom import minidom
 
-import sys
-
-
-from qgis.PyQt.uic import loadUiType
-from qgis.PyQt.QtWidgets import QAction, QDialog, QDialogButtonBox, QMessageBox
-from qgis.PyQt.QtGui import QIcon, QColor
-
+import requests
+from PyQt5 import QtNetwork
+from PyQt5.QtCore import QSettings, Qt, QVariant
 from qgis.core import (
+    QgsFeature,
+    QgsField,
+    QgsGeometry,
+    QgsProject,
+    QgsRectangle,
+    QgsVectorFileWriter,
     QgsVectorLayer,
     QgsWkbTypes,
-    QgsVectorFileWriter,
-    QgsProject,
-    QgsFeature,
-    QgsGeometry,
-    QgsRectangle,
-    QgsField
 )
+from qgis.PyQt.QtGui import QColor, QIcon
+from qgis.PyQt.QtWidgets import QAction, QDialog, QDialogButtonBox, QMessageBox
+from qgis.PyQt.uic import loadUiType
 
-from PyQt5 import QtNetwork
-from PyQt5.QtCore import Qt, QVariant, QSettings
-
-FORM_CLASS, _ = loadUiType(os.path.join(os.path.dirname(__file__), 'mySearch.ui'))
+FORM_CLASS, _ = loadUiType(os.path.join(os.path.dirname(__file__), "mySearch.ui"))
 
 # Access class through python console
 # my = qgis.utils.plugins['OneAtlas'].mySearch
@@ -38,71 +34,77 @@ FORM_CLASS, _ = loadUiType(os.path.join(os.path.dirname(__file__), 'mySearch.ui'
 # bm = basemap
 # dt = data
 
-WINDOW_TITLE = 'OneAtlas'
+WINDOW_TITLE = "OneAtlas"
 
 # Table attributs
 BASE_ATTR = {
-    'service': 'string',
-    'id': 'string',
-    'constellation': 'string',
-    'incidenceAngle': 'double',
-    'cloudCover': 'double'}
+    "service": "string",
+    "id": "string",
+    "constellation": "string",
+    "incidenceAngle": "double",
+    "cloudCover": "double",
+}
 BM_ATTR = dict(BASE_ATTR)
-BM_ATTR.update({
-    'insertionDate': 'string',
-    'wmts': 'string'})
+BM_ATTR.update({"insertionDate": "string", "wmts": "string"})
 DT_ATTR = dict(BASE_ATTR)
-DT_ATTR.update({
-    'service' : 'string',
-    'id' : 'string',
-    'acquisitionIdentifier' : 'string',
-    'parentIdentifier' : 'string',
-    'sourceIdentifier' : 'string',
-    'constellation' : 'string',
-    'acquisitionDate': 'string',
-    'cloudCover' :'double',
-    'incidenceAngle' : 'double',
-    'snowCover': 'double',
-    'processingLevel' : 'string',
-    'wmts_panchromatic': 'string', 
-    'wmts_multispectral': 'string',
-    'wmts_pms': 'string',
-    'wcs_panchromatic': 'string',
-    'wcs_multispectral': 'string',
-    'wcs_pms': 'string'})
+DT_ATTR.update(
+    {
+        "service": "string",
+        "id": "string",
+        "acquisitionIdentifier": "string",
+        "parentIdentifier": "string",
+        "sourceIdentifier": "string",
+        "constellation": "string",
+        "acquisitionDate": "string",
+        "cloudCover": "double",
+        "incidenceAngle": "double",
+        "snowCover": "double",
+        "processingLevel": "string",
+        "wmts_panchromatic": "string",
+        "wmts_multispectral": "string",
+        "wmts_pms": "string",
+        "wcs_panchromatic": "string",
+        "wcs_multispectral": "string",
+        "wcs_pms": "string",
+    }
+)
+
 
 def joinFieldsAttributes(ATTR):
     array = []
     for key, value in ATTR.items():
-        array.append(f'field={key}:{value}')
-    return '&'.join(array)
+        array.append(f"field={key}:{value}")
+    return "&".join(array)
+
 
 BM_FIELDS = joinFieldsAttributes(BM_ATTR)
 DT_FIELDS = joinFieldsAttributes(DT_ATTR)
 
-FIELDS = {'BaseMap': BM_FIELDS, 'Data': DT_FIELDS}
+FIELDS = {"BaseMap": BM_FIELDS, "Data": DT_FIELDS}
+
 
 class MySearch(QDialog, FORM_CLASS):
 
-    bmUrlAuth = 'https://view.geoapi-airbusds.com/api/v1/me'
-    bmUrlSearch = 'https://view.geoapi-airbusds.com/api/v1/images'
+    bmUrlAuth = "https://view.geoapi-airbusds.com/api/v1/me"
+    bmUrlSearch = "https://view.geoapi-airbusds.com/api/v1/images"
 
-    dataUrlAuth = 'https://authenticate.foundation.oneatlas.airbus.com/auth/realms/IDP/protocol/openid-connect/token'
-    dataUrlMe = 'https://data.api.oneatlas.airbus.com/api/v1/me'
-    dataUrlSearch = 'https://search.foundation.api.oneatlas.airbus.com/api/v1/opensearch'
-
+    dataUrlAuth = "https://authenticate.foundation.oneatlas.airbus.com/auth/realms/IDP/protocol/openid-connect/token"
+    dataUrlMe = "https://data.api.oneatlas.airbus.com/api/v1/me"
+    dataUrlSearch = (
+        "https://search.foundation.api.oneatlas.airbus.com/api/v2/opensearch"
+    )
 
     def __init__(self, iface):
         super(MySearch, self).__init__(iface.mainWindow())
         self.iface = iface
 
-        #--- PROXIES
+        # --- PROXIES
         self.initSession()
 
-        #--- UI
+        # --- UI
         self.setupUi(self)
         self.setWindowTitle(WINDOW_TITLE)
-        
+
         # Connect polygon and draw buttons
         # MAYBE change inputLine for TextLine and find a way to print properly on 2 lines
         self.polygonBtn.clicked.connect(self.fillPolygonInput)
@@ -118,7 +120,7 @@ class MySearch(QDialog, FORM_CLASS):
 
         # Add icon and connect search button
         # FIXME resources, for now just add icon on some buttons programatically
-        self.searchBtn.setIcon(QIcon(os.path.dirname(__file__) + f'/search.png'))
+        self.searchBtn.setIcon(QIcon(os.path.dirname(__file__) + f"/search.png"))
         self.searchBtn.clicked.connect(self.search)
         # Connect signals who can disable search button
         self.dtSpotCheck.stateChanged.connect(self.disableSearchBtn)
@@ -128,7 +130,7 @@ class MySearch(QDialog, FORM_CLASS):
         self.polygonInput.textChanged.connect(self.disableSearchBtn)
         self.disableSearchBtn()
 
-        #--- AUTH
+        # --- AUTH
         # Set auth variables and connect inputs to reset auth functions
         self.bmAuthReset()
         self.bmUsernameInput.textChanged.connect(self.bmAuthReset)
@@ -136,54 +138,56 @@ class MySearch(QDialog, FORM_CLASS):
         self.dtAuthReset()
         self.dtApikeyInput.textChanged.connect(self.dtAuthReset)
 
-
-    #--- PROXIES --------------------------------------------------------------#
+    # --- PROXIES --------------------------------------------------------------#
 
     def initSession(self):
         # Initialize the session for all requests
         self.session = requests.Session()
 
         settings = QSettings()
-        if settings.value('proxy/proxyEnabled', '') == 'true':
-            http = settings.value('proxy/proxyHost', '')
-            port = settings.value('proxy/proxyPort', '')
-            print(f'{http}:{port}')
-            if http != '' and port != '':
-                self.session.proxies = {'http': f'{http}:{port}', 'https':f'{http}:{port}'}
+        if settings.value("proxy/proxyEnabled", "") == "true":
+            http = settings.value("proxy/proxyHost", "")
+            port = settings.value("proxy/proxyPort", "")
+            print(f"{http}:{port}")
+            if http != "" and port != "":
+                self.session.proxies = {
+                    "http": f"{http}:{port}",
+                    "https": f"{http}:{port}",
+                }
         else:
-            print('No Proxy')
+            print("No Proxy")
 
-
-    #--- UI -------------------------------------------------------------------#
+    # --- UI -------------------------------------------------------------------#
 
     # Show an error dialog
     def error(self, msg):
         QMessageBox.critical(None, WINDOW_TITLE, msg)
 
-
     # Show an error in UI
-    def showErrorLbl(self, msg=''):
+    def showErrorLbl(self, msg=""):
         self.errorLbl.setText(msg)
-
 
     # Disable layer button is active layer isn't valid
     def disablePolygonBtnByLayerSelection(self, layer):
         # Try to disconnect last layer selection detection
         # TODO this is really dirty...
         try:
-            self.activeLayer.selectionChanged.disconnect(self.disablePolygonBtnByLayerSelection)
+            self.activeLayer.selectionChanged.disconnect(
+                self.disablePolygonBtnByLayerSelection
+            )
         except:
             pass
         # Disable polygon button
         self.polygonBtn.setEnabled(False)
-        self.polygonBtn.setToolTip(f'Select 1 polygon in a vector layer')
+        self.polygonBtn.setToolTip(f"Select 1 polygon in a vector layer")
         # Check if current selected layer is a VectorLayer
         if isinstance(layer, QgsVectorLayer):
             self.activeLayer = layer
             # Connect the selection changed signal
-            self.activeLayer.selectionChanged.connect(self.disablePolygonBtnByFeatureSelection)
+            self.activeLayer.selectionChanged.connect(
+                self.disablePolygonBtnByFeatureSelection
+            )
             self.disablePolygonBtnByFeatureSelection()
-            
 
     # Check if attributes 'service' exist in selected features
     def disablePolygonBtnByFeatureSelection(self):
@@ -191,19 +195,19 @@ class MySearch(QDialog, FORM_CLASS):
         if self.activeLayer.selectedFeatureCount() == 1:
             self.selectedFeature = self.activeLayer.selectedFeatures()[0]
             self.polygonBtn.setEnabled(True)
-            self.polygonBtn.setToolTip('')
-        
+            self.polygonBtn.setToolTip("")
 
     # Initialise the qgis feature tool to draw a new AOI
     def startDraw(self):
         # Create and add the new layer
-        layer = QgsVectorLayer('Polygon?crs=epsg:4326', providerLib='memory')
-        layer.renderer().symbol().setColor(QColor.fromRgb(160,82,45))
-        layer.setName(f'search aoi')
+        layer = QgsVectorLayer("Polygon?crs=epsg:4326", providerLib="memory")
+        layer.renderer().symbol().setColor(QColor.fromRgb(160, 82, 45))
+        layer.setName(f"search aoi")
         QgsProject.instance().addMapLayer(layer)
 
         # Use the add feature tool
         self.iface.setActiveLayer(layer)
+
         # Function called when the feature is added to the layer
         def featureAdded():
             # Disconnect from the signal
@@ -213,11 +217,11 @@ class MySearch(QDialog, FORM_CLASS):
             # Select the feature then fill the input
             feature = layer.selectAll()
             self.fillPolygonInput()
+
         # Connect the layer to the signal featureAdded
         layer.featureAdded.connect(featureAdded)
         layer.startEditing()
         self.iface.actionAddFeature().trigger()
-
 
     # Fill the polygon input with a selected polygon (wkt)
     def fillPolygonInput(self):
@@ -227,7 +231,6 @@ class MySearch(QDialog, FORM_CLASS):
         print(polygon)
         self.polygonInput.setText(polygon)
 
-
     # Hide or Show and change text of search button
     def onTabChange(self, i):
         # Configuration tab : hide
@@ -236,85 +239,99 @@ class MySearch(QDialog, FORM_CLASS):
         # Else show with the right text
         else:
             if i == 1:
-                self.searchBtn.setText('Basemap search')
+                self.searchBtn.setText("Basemap search")
             else:
-                self.searchBtn.setText('Data search')
+                self.searchBtn.setText("Data search")
             self.searchBtn.show()
-
 
     # Disable search button if there is problem in parameters
     def disableSearchBtn(self):
         errors = []
-        if self.polygonInput.text() == '':
-            errors.append('Fill the <b>Polygon</b> input')
+        if self.polygonInput.text() == "":
+            errors.append("Fill the <b>Polygon</b> input")
         # MAYBE catch bad format polygon (space between POLYGON and parenthese, missing parentese and more...)
         # POLYGON \((\((-?\d+(\.\d+)? -?\d+(\.\d+)?)(, -?\d+(\.\d+)? -?\d+(\.\d+)?)*\))+\)
         elif QgsGeometry.fromWkt(self.polygonInput.text()).isGeosValid() == False:
-            errors.append('<b>Polygon</b> is invalid (check for crossing lines or double points)')
-        if not self.dtSpotCheck.isChecked() and not self.dtPleiadesCheck.isChecked() and not self.dtPleiadesNeoCheck.isChecked():
-            errors.append('Check at least one <b>Sensor</b>')
+            errors.append(
+                "<b>Polygon</b> is invalid (check for crossing lines or double points)"
+            )
+        if (
+            not self.dtSpotCheck.isChecked()
+            and not self.dtPleiadesCheck.isChecked()
+            and not self.dtPleiadesNeoCheck.isChecked()
+        ):
+            errors.append("Check at least one <b>Sensor</b>")
         if not self.dtPublicCheck.isChecked() and not self.dtPrivateCheck.isChecked():
-            errors.append('Check at least one <b>Workspace</b>')
-        error = '<br>'.join(errors)
-        self.searchBtn.setEnabled(error == '')
+            errors.append("Check at least one <b>Workspace</b>")
+        error = "<br>".join(errors)
+        self.searchBtn.setEnabled(error == "")
         self.showErrorLbl(error)
-        
 
-    #--- AUTH -----------------------------------------------------------------#
+    # --- AUTH -----------------------------------------------------------------#
 
     def bmAuthReset(self):
         self.bmAuth = None
 
     def bmSetAuth(self):
-        print('Set Basemap auth...')
+        print("Set Basemap auth...")
 
         # Set auth for the first time and test it
         if self.bmAuth is None:
-            self.bmAuth = requests.auth.HTTPBasicAuth(self.bmUsernameInput.text(), self.bmPasswordInput.text())
+            self.bmAuth = requests.auth.HTTPBasicAuth(
+                self.bmUsernameInput.text(), self.bmPasswordInput.text()
+            )
             r = self.session.get(self.bmUrlAuth, auth=self.bmAuth)
 
             # Exception bad authentication
             if r.status_code != 200:
                 self.bmAuthReset()
-                self.error('Basemap authentication error')
+                self.error("Basemap authentication error")
                 raise
-            
+
     def dtAuthReset(self):
         self.dtHeaders = None
         self.dtWorkspaceId = None
 
     def dtSetAuth(self):
-        print('Set Data auth...')
+        print("Set Data auth...")
 
         # Set header for the first time and test it
         if self.dtHeaders is None or self.dtWorkspaceId is None:
-            r = self.session.post(self.dataUrlAuth,
-                            headers={'Content-Type':'application/x-www-form-urlencoded'},
-                            data={'apikey':self.dtApikeyInput.text(), 'grant_type':'api_key', 'client_id':'IDP'})
+            r = self.session.post(
+                self.dataUrlAuth,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "apikey": self.dtApikeyInput.text(),
+                    "grant_type": "api_key",
+                    "client_id": "IDP",
+                },
+            )
 
             # Exception bad authentication
             if r.status_code != 200:
                 self.dtAuthReset()
-                self.error('Data authentication error')
+                self.error("Data authentication error")
                 raise
 
             # MAYBE decode x64 to print rights or some other usefull info ?
-            self.dtHeaders = {'Content-Type':'application/json', 'Authorization':f'Bearer {r.json()["access_token"]}'}
+            self.dtHeaders = {
+                "Content-Type": "application/json",
+                "Authorization": f'Bearer {r.json()["access_token"]}',
+            }
 
             r = self.session.get(self.dataUrlMe, headers=self.dtHeaders)
 
-            print (r)
+            print(r)
 
             # Exception workspace error
             if r.status_code != 200:
                 self.dtAuthReset()
-                self.error('Data get workspace id error')
+                self.error("Data get workspace id error")
                 raise
 
-            self.dtWorkspaceId = r.json()['contract']['workspaceId']
+            self.dtWorkspaceId = r.json()["contract"]["workspaceId"]
 
-
-    #--- API CALL -------------------------------------------------------------#
+    # --- API CALL -------------------------------------------------------------#
 
     # Return the current datetime format without microseconds
     def now(self):
@@ -323,7 +340,7 @@ class MySearch(QDialog, FORM_CLASS):
     # Get a properties of api feature if exist, else return None
     def getPropertie(self, rFeature, name):
         try:
-            return rFeature['properties'][name]
+            return rFeature["properties"][name]
         except:
             return None
 
@@ -334,29 +351,36 @@ class MySearch(QDialog, FORM_CLASS):
             service = self.tab.tabText(self.tab.currentIndex())
 
             # Params
-            params = {'geometry': self.polygonInput.text()}
+            params = {"geometry": self.polygonInput.text()}
 
             # Set auth and add params according to service
-            if service == 'BaseMap':
+            if service == "BaseMap":
                 # ! Auth
                 self.bmSetAuth()
-                
+
                 # Set request attributes
                 url = self.bmUrlSearch
                 auth = self.bmAuth
                 headers = None
 
                 # Update params
-                params.update({
-                    'size': self.maxResultsInput.value(), 
-                    'insertdtstart': '1970-01-01T00:00:00',
-                    'insertdtend': self.now()})
-                
+                params.update(
+                    {
+                        "size": self.maxResultsInput.value(),
+                        "insertdtstart": "1970-01-01T00:00:00",
+                        "insertdtend": self.now(),
+                    }
+                )
+
                 # Dates
                 if self.bmFromCheck.isChecked():
-                    params['insertdtstart'] = self.bmFromInput.dateTime().toString(Qt.ISODate)
+                    params["insertdtstart"] = self.bmFromInput.dateTime().toString(
+                        Qt.ISODate
+                    )
                 if self.bmToCheck.isChecked():
-                    params['insertdtend'] = self.bmToInput.dateTime().toString(Qt.ISODate)
+                    params["insertdtend"] = self.bmToInput.dateTime().toString(
+                        Qt.ISODate
+                    )
 
             else:
                 # ! Auth
@@ -369,15 +393,15 @@ class MySearch(QDialog, FORM_CLASS):
                 # Constellations (at least one)
                 constellations = []
                 if self.dtSpotCheck.isChecked():
-                    constellations.append('SPOT')
+                    constellations.append("SPOT")
                 if self.dtPleiadesCheck.isChecked():
-                    constellations.append('PHR')
+                    constellations.append("PHR")
                 if self.dtPleiadesNeoCheck.isChecked():
-                    constellations.append('PNEO')
+                    constellations.append("PNEO")
 
                 # Dates
                 # MAYBE remove hours from dates
-                dateFrom, dateTo = '1970-01-01T00:00:00', self.now()
+                dateFrom, dateTo = "1970-01-01T00:00:00", self.now()
                 if self.dtFromCheck.isChecked():
                     dateFrom = self.dtFromInput.dateTime().toString(Qt.ISODate)
                 if self.dtToCheck.isChecked():
@@ -392,127 +416,154 @@ class MySearch(QDialog, FORM_CLASS):
 
                 # Covers (directlly update params)
                 if self.dtCloudCheck.isChecked():
-                    params['cloudCover'] = f'[0,{self.dtCloudInput.value()}]'
+                    params["cloudCover"] = f"[0,{self.dtCloudInput.value()}]"
                 if self.dtSnowCheck.isChecked():
-                    params['snowCover'] = f'[0,{self.dtSnowInput.value()}]'
+                    params["snowCover"] = f"[0,{self.dtSnowInput.value()}]"
 
                 # Workspaces (at leat one)
                 workspaces = []
                 if self.dtPublicCheck.isChecked():
 
                     ## Workspace public for SPOT and PHR
-                    workspaces.append('0e33eb50-3404-48ad-b835-b0b4b72a5625')
+                    workspaces.append("0e33eb50-3404-48ad-b835-b0b4b72a5625")
 
                     ## Workspace public for PNEO
                     ## {"id": "3e88441b-adc9-4be6-bd80-59d4fb69d5a7", "name": "public-pneo", "title": "Workspace temporaire pour la data pneo"}
-                    workspaces.append('3e88441b-adc9-4be6-bd80-59d4fb69d5a7')
+                    workspaces.append("3e88441b-adc9-4be6-bd80-59d4fb69d5a7")
 
                 if self.dtPrivateCheck.isChecked():
                     workspaces.append(self.dtWorkspaceId)
 
                 # Update all params with right format
-                params.update({
-                    'itemsPerPage': self.maxResultsInput.value(),
-                    'constellation': ','.join(constellations),
-                    'acquisitionDate': f'[{dateFrom},{dateTo}]',
-                    'incidenceAngle': f'[{angleMin},{angleMax}]',
-                    'workspace': ','.join(workspaces)})
+                params.update(
+                    {
+                        "itemsPerPage": self.maxResultsInput.value(),
+                        "constellation": ",".join(constellations),
+                        "acquisitionDate": f"[{dateFrom},{dateTo}]",
+                        "incidenceAngle": f"[{angleMin},{angleMax}]",
+                        "workspace": ",".join(workspaces),
+                    }
+                )
 
             # Finally do the api call
             t = datetime.datetime.now()
-            print(f'START {service} search')
+            print(f"START {service} search")
             r = self.session.get(url, auth=auth, headers=headers, params=params)
-            print(f'Result : {r}')
+            print(f"Result : {r}")
             rSearch = r.json()
 
             # Exception request error
             if r.status_code != 200:
-                self.error(f'{service} search error {r.status_code}\n{rSearch["message"]}')
-                print(f'Result (Json) : {rSearch}')
+                self.error(
+                    f'{service} search error {r.status_code}\n{rSearch["message"]}'
+                )
+                print(f"Result (Json) : {rSearch}")
                 return
 
-            print ('Total Results : '+ str(rSearch['totalResults']))
+            print("Total Results : " + str(rSearch["totalResults"]))
 
             # Create the search result layer with fields according to current service
-            layer = QgsVectorLayer(f'Polygon?crs=epsg:4326&index=yes&{FIELDS[service]}', providerLib='memory', baseName=f'{service} search results')
+            layer = QgsVectorLayer(
+                f"Polygon?crs=epsg:4326&index=yes&{FIELDS[service]}",
+                providerLib="memory",
+                baseName=f"{service} search results",
+            )
 
             # Extract features
             features = []
             self.errorFeatures = []
-            for rFeature in rSearch['features']:
+            for rFeature in rSearch["features"]:
                 # Add a feature of the bbox on the new layer
-                feature = QgsFeature(layer.fields())            
+                feature = QgsFeature(layer.fields())
                 # Try to get each attributes
-                feature['service'] = service
-                feature['constellation'] = self.getPropertie(rFeature, 'constellation')
-                feature['incidenceAngle'] = self.getPropertie(rFeature, 'incidenceAngle')
-                feature['cloudCover'] = self.getPropertie(rFeature, 'cloudCover')
-                if service == 'BaseMap':
-                    feature['id'] = rFeature['id']
-                    feature['insertionDate'] = self.getPropertie(rFeature, 'insertionDate')
-                    feature['wmts'] = self.getPropertie(rFeature, 'wmts')
+                feature["service"] = service
+                feature["constellation"] = self.getPropertie(rFeature, "constellation")
+                feature["incidenceAngle"] = self.getPropertie(
+                    rFeature, "incidenceAngle"
+                )
+                feature["cloudCover"] = self.getPropertie(rFeature, "cloudCover")
+                if service == "BaseMap":
+                    feature["id"] = rFeature["id"]
+                    feature["insertionDate"] = self.getPropertie(
+                        rFeature, "insertionDate"
+                    )
+                    feature["wmts"] = self.getPropertie(rFeature, "wmts")
                     # Bbox
-                    fBbox = rFeature['properties']['bbox']
+                    fBbox = rFeature["properties"]["bbox"]
                     rectangle = QgsRectangle(fBbox[0], fBbox[1], fBbox[2], fBbox[3])
                 else:
-                    feature['id'] = self.getPropertie(rFeature, 'id')
-                    feature['acquisitionIdentifier'] = self.getPropertie(rFeature, 'acquisitionIdentifier')
-                    feature['sourceIdentifier'] = self.getPropertie(rFeature, 'sourceIdentifier')
-                    feature['parentIdentifier'] = self.getPropertie(rFeature, 'parentIdentifier')
-                    feature['processingLevel'] = self.getPropertie(rFeature, 'processingLevel')
-                    feature['acquisitionDate'] = self.getPropertie(rFeature, 'acquisitionDate')
-                    feature['snowCover'] = self.getPropertie(rFeature, 'snowCover')
+                    feature["id"] = self.getPropertie(rFeature, "id")
+                    feature["acquisitionIdentifier"] = self.getPropertie(
+                        rFeature, "acquisitionIdentifier"
+                    )
+                    feature["sourceIdentifier"] = self.getPropertie(
+                        rFeature, "sourceIdentifier"
+                    )
+                    feature["parentIdentifier"] = self.getPropertie(
+                        rFeature, "parentIdentifier"
+                    )
+                    feature["processingLevel"] = self.getPropertie(
+                        rFeature, "processingLevel"
+                    )
+                    feature["acquisitionDate"] = self.getPropertie(
+                        rFeature, "acquisitionDate"
+                    )
+                    feature["snowCover"] = self.getPropertie(rFeature, "snowCover")
                     try:
 
                         # Warmup / Archive images (processingLevel=ALBUM) don't have WMTS or WCS links
-                        if self.getPropertie(rFeature, 'processingLevel') != 'ALBUM':
+                        if self.getPropertie(rFeature, "processingLevel") != "ALBUM":
                             # More than one record, it's a list
-                            if type(rFeature['_links']['imagesWmts']) is list:
-                                for json in rFeature['_links']['imagesWmts']:
-                                    feature[f'wmts_{json["name"]}'] = json['href']
+                            if type(rFeature["_links"]["imagesWmts"]) is list:
+                                for json in rFeature["_links"]["imagesWmts"]:
+                                    feature[f'wmts_{json["name"]}'] = json["href"]
                             # Only one record, it's a dict
                             else:
-                                json =rFeature['_links']['imagesWmts']
+                                json = rFeature["_links"]["imagesWmts"]
                                 # Is the key "name" exist in the <dict> ?
                                 if "name" in rFeature["_links"]["imagesWmts"]:
-                                    feature[ f'wmts_{json["name"]}' ] = json['href']
+                                    feature[f'wmts_{json["name"]}'] = json["href"]
                                 else:
-                                    feature['wmts_pms'] = json['href']
-                            feature['wmts_pms'] = rFeature['_links']['wmts']['href']
+                                    feature["wmts_pms"] = json["href"]
+                            feature["wmts_pms"] = rFeature["_links"]["wmts"]["href"]
 
                             # More than one record, it's a list
-                            if type(rFeature['_links']['imagesWcs']) is list:
-                                for json in rFeature['_links']['imagesWcs']:
-                                    if 'buffer' in rFeature['rights']:
+                            if type(rFeature["_links"]["imagesWcs"]) is list:
+                                for json in rFeature["_links"]["imagesWcs"]:
+                                    if "buffer" in rFeature["rights"]:
                                         # Is the key "name" exist in the <dict> ?
                                         if "name" in rFeature["_links"]["imagesWcs"]:
-                                            feature[f'wcs_{json["name"]}'] = json['href']
+                                            feature[f'wcs_{json["name"]}'] = json[
+                                                "href"
+                                            ]
                                         else:
-                                            feature['wcs_pms'] = json['href']
+                                            feature["wcs_pms"] = json["href"]
                                     else:
                                         # Is the key "name" exist in the <dict> ?
                                         if "name" in rFeature["_links"]["imagesWcs"]:
                                             feature[f'wcs_{json["name"]}'] = None
                                         else:
-                                            feature['wcs_pms'] = None
+                                            feature["wcs_pms"] = None
                             # Only one record, it's a dict
                             else:
-                                json =rFeature['_links']['imagesWcs']
-                                if 'buffer' in rFeature['rights']:
+                                json = rFeature["_links"]["imagesWcs"]
+                                if "buffer" in rFeature["rights"]:
                                     # Is the key "name" exist in the <dict> ?
                                     if "name" in rFeature["_links"]["imagesWcs"]:
-                                        feature[f'wcs_{json["name"]}'] = json['href']
+                                        feature[f'wcs_{json["name"]}'] = json["href"]
                                     else:
-                                        feature['wcs_pms'] = json['href']
+                                        feature["wcs_pms"] = json["href"]
                                 else:
                                     # Is the key "name" exist in the <dict> ?
                                     if "name" in rFeature["_links"]["imagesWcs"]:
                                         feature[f'wcs_{json["name"]}'] = None
                                     else:
-                                        feature['wcs_pms'] = None
+                                        feature["wcs_pms"] = None
 
                     except Exception as e:
-                        print(f'ERROR * eF = qgis.utils.plugins["OneAtlas"].mySearch.errorFeatures[{len(self.errorFeatures)}]')
+                        print(
+                            f'ERROR * eF = qgis.utils.plugins["OneAtlas"].mySearch.errorFeatures[{len(self.errorFeatures)}]'
+                        )
                         print(str(e))
 
                         exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -522,42 +573,51 @@ class MySearch(QDialog, FORM_CLASS):
                         self.errorFeatures.append(rFeature)
                         continue
                     # Bbox
-                    coordinates = rFeature['geometry']['coordinates'][0]
-                    rectangle = QgsRectangle(coordinates[0][0], coordinates[0][1], coordinates[2][0], coordinates[2][1])
+                    coordinates = rFeature["geometry"]["coordinates"][0]
+                    rectangle = QgsRectangle(
+                        coordinates[0][0],
+                        coordinates[0][1],
+                        coordinates[2][0],
+                        coordinates[2][1],
+                    )
                 # Add geometry from rectangle
                 feature.setGeometry(QgsGeometry.fromWkt(rectangle.asWktPolygon()))
                 # Add feature to list
                 features.append(feature)
 
             # Total
-            if service == 'BaseMap':
+            if service == "BaseMap":
                 # Note : rSearch['totalResults'] is maybe the number of total element in bbox ?
                 #   and numberOfElements is the true total result
-                total = rSearch['numberOfElements']
-                color = QColor.fromRgb(0,250,0)
+                total = rSearch["numberOfElements"]
+                color = QColor.fromRgb(0, 250, 0)
             else:
-                total = rSearch['totalResults']
-                color = QColor.fromRgb(0,250,250)
+                total = rSearch["totalResults"]
+                color = QColor.fromRgb(0, 250, 250)
 
             if len(self.errorFeatures) > 0:
                 total -= len(self.errorFeatures)
-                print(f'* {len(self.errorFeatures)} error feature')
+                print(f"* {len(self.errorFeatures)} error feature")
 
             # Notification for number of total results
             msgBox = QMessageBox()
             msgBox.setWindowTitle(WINDOW_TITLE)
-            msgBox.setText(f'There are {total} results')
+            msgBox.setText(f"There are {total} results")
             if total > len(features):
                 msgBox.setIcon(QMessageBox.Warning)
-                msgBox.setInformativeText(f'The maximum is configured to {self.maxResultsInput.value()}\nPlease refine your criteria or your AOI')
+                msgBox.setInformativeText(
+                    f"The maximum is configured to {self.maxResultsInput.value()}\nPlease refine your criteria or your AOI"
+                )
                 msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Ignore)
                 msgBox.setDefaultButton(QMessageBox.Retry)
             else:
                 msgBox.setIcon(QMessageBox.Information)
                 msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Ok)
                 msgBox.setDefaultButton(QMessageBox.Ok)
-            msgBox.button(QMessageBox.Retry).setText('Refine')
-            msgBox.button(QMessageBox.Retry).setIcon(QIcon(os.path.dirname(__file__) + f'/search.png'))
+            msgBox.button(QMessageBox.Retry).setText("Refine")
+            msgBox.button(QMessageBox.Retry).setIcon(
+                QIcon(os.path.dirname(__file__) + f"/search.png")
+            )
 
             reply = msgBox.exec_()
             if reply == QMessageBox.Retry or len(features) == 0:
@@ -582,11 +642,15 @@ class MySearch(QDialog, FORM_CLASS):
 
     # Get the layers parameters extracted from GetCapabilities
     def bmGetLayer(self, wmtsUrl):
-        r = self.session.get(wmtsUrl, auth=self.bmAuth, params={'service': 'WMTS', 'request': 'GetCapabilities'})
+        r = self.session.get(
+            wmtsUrl,
+            auth=self.bmAuth,
+            params={"service": "WMTS", "request": "GetCapabilities"},
+        )
         # Convert response to XML
-        xml = r.content.decode('utf-8')
+        xml = r.content.decode("utf-8")
         doc = minidom.parseString(xml)
         # Find the layers id
-        layerDoc = doc.getElementsByTagName('Layer')[0]
-        layers = layerDoc.getElementsByTagName('ows:Identifier')[0].firstChild.data
+        layerDoc = doc.getElementsByTagName("Layer")[0]
+        layers = layerDoc.getElementsByTagName("ows:Identifier")[0].firstChild.data
         return layers
