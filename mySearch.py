@@ -4,8 +4,8 @@ import sys
 from xml.dom import minidom
 
 import requests
-from PyQt5 import QtNetwork
-from PyQt5.QtCore import QSettings, Qt, QVariant
+from qgis.PyQt import QtNetwork
+from qgis.PyQt.QtCore import QSettings, Qt, QVariant
 from qgis.core import (
     QgsFeature,
     QgsField,
@@ -84,7 +84,6 @@ FIELDS = {"BaseMap": BM_FIELDS, "Data": DT_FIELDS}
 
 
 class MySearch(QDialog, FORM_CLASS):
-
     bmUrlAuth = "https://view.geoapi-airbusds.com/api/v1/me"
     bmUrlSearch = "https://view.geoapi-airbusds.com/api/v1/images"
 
@@ -127,7 +126,9 @@ class MySearch(QDialog, FORM_CLASS):
         self.dtPleiadesCheck.stateChanged.connect(self.disableSearchBtn)
         self.dtPublicCheck.stateChanged.connect(self.disableSearchBtn)
         self.dtPrivateCheck.stateChanged.connect(self.disableSearchBtn)
+        self.dtCustomCheck.stateChanged.connect(self.disableSearchBtn)
         self.polygonInput.textChanged.connect(self.disableSearchBtn)
+        self.customWorkspaces.textChanged.connect(self.disableSearchBtn)
         self.disableSearchBtn()
 
         # --- AUTH
@@ -251,7 +252,7 @@ class MySearch(QDialog, FORM_CLASS):
             errors.append("Fill the <b>Polygon</b> input")
         # MAYBE catch bad format polygon (space between POLYGON and parenthese, missing parentese and more...)
         # POLYGON \((\((-?\d+(\.\d+)? -?\d+(\.\d+)?)(, -?\d+(\.\d+)? -?\d+(\.\d+)?)*\))+\)
-        elif QgsGeometry.fromWkt(self.polygonInput.text()).isGeosValid() == False:
+        elif not QgsGeometry.fromWkt(self.polygonInput.text()).isGeosValid():
             errors.append(
                 "<b>Polygon</b> is invalid (check for crossing lines or double points)"
             )
@@ -261,8 +262,14 @@ class MySearch(QDialog, FORM_CLASS):
             and not self.dtPleiadesNeoCheck.isChecked()
         ):
             errors.append("Check at least one <b>Sensor</b>")
-        if not self.dtPublicCheck.isChecked() and not self.dtPrivateCheck.isChecked():
+        if (
+            not self.dtPublicCheck.isChecked()
+            and not self.dtPrivateCheck.isChecked()
+            and not self.dtCustomCheck.isChecked()
+        ):
             errors.append("Check at least one <b>Workspace</b>")
+        if self.dtCustomCheck.isChecked() and len(self.customWorkspaces.text()) == 0:
+            errors.append("<b>No custom workspace</b> provided")
         error = "<br>".join(errors)
         self.searchBtn.setEnabled(error == "")
         self.showErrorLbl(error)
@@ -316,7 +323,7 @@ class MySearch(QDialog, FORM_CLASS):
             # MAYBE decode x64 to print rights or some other usefull info ?
             self.dtHeaders = {
                 "Content-Type": "application/json",
-                "Authorization": f'Bearer {r.json()["access_token"]}',
+                "Authorization": f"Bearer {r.json()['access_token']}",
             }
 
             r = self.session.get(self.dataUrlMe, headers=self.dtHeaders)
@@ -375,11 +382,11 @@ class MySearch(QDialog, FORM_CLASS):
                 # Dates
                 if self.bmFromCheck.isChecked():
                     params["insertdtstart"] = self.bmFromInput.dateTime().toString(
-                        Qt.ISODate
+                        Qt.DateFormat.ISODate
                     )
                 if self.bmToCheck.isChecked():
                     params["insertdtend"] = self.bmToInput.dateTime().toString(
-                        Qt.ISODate
+                        Qt.DateFormat.ISODate
                     )
 
             else:
@@ -403,9 +410,9 @@ class MySearch(QDialog, FORM_CLASS):
                 # MAYBE remove hours from dates
                 dateFrom, dateTo = "1970-01-01T00:00:00", self.now()
                 if self.dtFromCheck.isChecked():
-                    dateFrom = self.dtFromInput.dateTime().toString(Qt.ISODate)
+                    dateFrom = self.dtFromInput.dateTime().toString(Qt.DateFormat.ISODate)
                 if self.dtToCheck.isChecked():
-                    dateTo = self.dtToInput.dateTime().toString(Qt.ISODate)
+                    dateTo = self.dtToInput.dateTime().toString(Qt.DateFormat.ISODate)
 
                 # Angles
                 angleMin, angleMax = 0, 30
@@ -420,10 +427,9 @@ class MySearch(QDialog, FORM_CLASS):
                 if self.dtSnowCheck.isChecked():
                     params["snowCover"] = f"[0,{self.dtSnowInput.value()}]"
 
-                # Workspaces (at leat one)
+                # Workspaces (at least one)
                 workspaces = []
                 if self.dtPublicCheck.isChecked():
-
                     ## Workspace public for SPOT and PHR
                     workspaces.append("0e33eb50-3404-48ad-b835-b0b4b72a5625")
 
@@ -433,6 +439,11 @@ class MySearch(QDialog, FORM_CLASS):
 
                 if self.dtPrivateCheck.isChecked():
                     workspaces.append(self.dtWorkspaceId)
+
+                if self.dtCustomCheck.isChecked():
+                    print(self.customWorkspaces.text())
+                    for ws in self.customWorkspaces.text().split(","):
+                        workspaces.append(ws.strip())
 
                 # Update all params with right format
                 params.update(
@@ -444,7 +455,7 @@ class MySearch(QDialog, FORM_CLASS):
                         "workspace": ",".join(workspaces),
                     }
                 )
-
+            print(params)
             # Finally do the api call
             t = datetime.datetime.now()
             print(f"START {service} search")
@@ -455,7 +466,7 @@ class MySearch(QDialog, FORM_CLASS):
             # Exception request error
             if r.status_code != 200:
                 self.error(
-                    f'{service} search error {r.status_code}\n{rSearch["message"]}'
+                    f"{service} search error {r.status_code}\n{rSearch['message']}"
                 )
                 print(f"Result (Json) : {rSearch}")
                 return
@@ -510,19 +521,18 @@ class MySearch(QDialog, FORM_CLASS):
                     )
                     feature["snowCover"] = self.getPropertie(rFeature, "snowCover")
                     try:
-
                         # Warmup / Archive images (processingLevel=ALBUM) don't have WMTS or WCS links
                         if self.getPropertie(rFeature, "processingLevel") != "ALBUM":
                             # More than one record, it's a list
                             if type(rFeature["_links"]["imagesWmts"]) is list:
                                 for json in rFeature["_links"]["imagesWmts"]:
-                                    feature[f'wmts_{json["name"]}'] = json["href"]
+                                    feature[f"wmts_{json['name']}"] = json["href"]
                             # Only one record, it's a dict
                             else:
                                 json = rFeature["_links"]["imagesWmts"]
                                 # Is the key "name" exist in the <dict> ?
                                 if "name" in rFeature["_links"]["imagesWmts"]:
-                                    feature[f'wmts_{json["name"]}'] = json["href"]
+                                    feature[f"wmts_{json['name']}"] = json["href"]
                                 else:
                                     feature["wmts_pms"] = json["href"]
                             feature["wmts_pms"] = rFeature["_links"]["wmts"]["href"]
@@ -533,7 +543,7 @@ class MySearch(QDialog, FORM_CLASS):
                                     if "buffer" in rFeature["rights"]:
                                         # Is the key "name" exist in the <dict> ?
                                         if "name" in rFeature["_links"]["imagesWcs"]:
-                                            feature[f'wcs_{json["name"]}'] = json[
+                                            feature[f"wcs_{json['name']}"] = json[
                                                 "href"
                                             ]
                                         else:
@@ -541,7 +551,7 @@ class MySearch(QDialog, FORM_CLASS):
                                     else:
                                         # Is the key "name" exist in the <dict> ?
                                         if "name" in rFeature["_links"]["imagesWcs"]:
-                                            feature[f'wcs_{json["name"]}'] = None
+                                            feature[f"wcs_{json['name']}"] = None
                                         else:
                                             feature["wcs_pms"] = None
                             # Only one record, it's a dict
@@ -550,13 +560,13 @@ class MySearch(QDialog, FORM_CLASS):
                                 if "buffer" in rFeature["rights"]:
                                     # Is the key "name" exist in the <dict> ?
                                     if "name" in rFeature["_links"]["imagesWcs"]:
-                                        feature[f'wcs_{json["name"]}'] = json["href"]
+                                        feature[f"wcs_{json['name']}"] = json["href"]
                                     else:
                                         feature["wcs_pms"] = json["href"]
                                 else:
                                     # Is the key "name" exist in the <dict> ?
                                     if "name" in rFeature["_links"]["imagesWcs"]:
-                                        feature[f'wcs_{json["name"]}'] = None
+                                        feature[f"wcs_{json['name']}"] = None
                                     else:
                                         feature["wcs_pms"] = None
 
@@ -604,23 +614,23 @@ class MySearch(QDialog, FORM_CLASS):
             msgBox.setWindowTitle(WINDOW_TITLE)
             msgBox.setText(f"There are {total} results")
             if total > len(features):
-                msgBox.setIcon(QMessageBox.Warning)
+                msgBox.setIcon(QMessageBox.Icon.Warning)
                 msgBox.setInformativeText(
                     f"The maximum is configured to {self.maxResultsInput.value()}\nPlease refine your criteria or your AOI"
                 )
-                msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Ignore)
-                msgBox.setDefaultButton(QMessageBox.Retry)
+                msgBox.setStandardButtons(QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Ignore)
+                msgBox.setDefaultButton(QMessageBox.StandardButton.Retry)
             else:
-                msgBox.setIcon(QMessageBox.Information)
-                msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Ok)
-                msgBox.setDefaultButton(QMessageBox.Ok)
-            msgBox.button(QMessageBox.Retry).setText("Refine")
-            msgBox.button(QMessageBox.Retry).setIcon(
+                msgBox.setIcon(QMessageBox.Icon.Information)
+                msgBox.setStandardButtons(QMessageBox.StandardButton.Retry | QMessageBox.StandardButton.Ok)
+                msgBox.setDefaultButton(QMessageBox.StandardButton.Ok)
+            msgBox.button(QMessageBox.StandardButton.Retry).setText("Refine")
+            msgBox.button(QMessageBox.StandardButton.Retry).setIcon(
                 QIcon(os.path.dirname(__file__) + f"/search.png")
             )
 
-            reply = msgBox.exec_()
-            if reply == QMessageBox.Retry or len(features) == 0:
+            reply = msgBox.exec()
+            if reply == QMessageBox.StandardButton.Retry or len(features) == 0:
                 return
 
             # Add result feature to the new layer

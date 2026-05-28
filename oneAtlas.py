@@ -125,7 +125,7 @@ class OneAtlas:
             self.msgBox.setWindowTitle(self.menu)
 
             if self.selectedFeature['processingLevel'] == 'ALBUM':
-                self.iface.messageBar().pushMessage("Warning", "The feature can't be displayed (no WMTS for Archive features)", level=Qgis.Warning)
+                self.iface.messageBar().pushMessage("Warning", "The feature can't be displayed (no WMTS for Archive features)", level=Qgis.MessageLevel.Warning)
                 goForStream = False
             else:
                 protocolGroup = QGroupBox('Protocol')
@@ -166,9 +166,9 @@ class OneAtlas:
 
                 
 
-                self.msgBox.setStandardButtons(QMessageBox.Abort | QMessageBox.Ok)
-                reply = self.msgBox.exec_()
-                if reply == QMessageBox.Abort:
+                self.msgBox.setStandardButtons(QMessageBox.StandardButton.Abort | QMessageBox.StandardButton.Ok)
+                reply = self.msgBox.exec()
+                if reply == QMessageBox.StandardButton.Abort:
                     return
                 if wmtsRadio.isChecked():
                     urlAttr = 'wmts_'
