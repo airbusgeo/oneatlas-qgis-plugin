@@ -9,7 +9,7 @@ email=technicalsupport@intelligence-airbusds.com
 
 qgisMinimumVersion=3.0
 qgisMaximumVersion=4.99
-version=2.0.0
+version=2.0.1
 
 tracker=https://github.com/airbusgeo/oneatlas-qgis-plugin/issues
 repository=https://github.com/airbusgeo/oneatlas-qgis-plugin

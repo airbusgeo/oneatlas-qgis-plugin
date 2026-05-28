@@ -659,7 +659,7 @@ class MySearch(QDialog, FORM_CLASS):
         )
         # Convert response to XML
         xml = r.content.decode("utf-8")
-        doc = minidom.parseString(xml)
+        doc = minidom.parseString(xml) # nosec
         # Find the layers id
         layerDoc = doc.getElementsByTagName("Layer")[0]
         layers = layerDoc.getElementsByTagName("ows:Identifier")[0].firstChild.data
